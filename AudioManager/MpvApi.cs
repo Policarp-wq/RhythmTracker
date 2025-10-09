@@ -10,9 +10,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
-namespace RhythmTracker;
+namespace RhythmTracker.AudioManager;
 
-public class MpvApi : IDisposable
+public class MpvApi : IDisposable, IAudioManager
 {
     private const int POLL_INTERVAL = 250;
     private const string MPV_SERVER_SOCKET_PATH = "/tmp/mpvsocket";
@@ -28,7 +28,8 @@ public class MpvApi : IDisposable
         var psi = new ProcessStartInfo
         {
             FileName = "mpv",
-            Arguments = $"{audioFile} --really-quiet --input-ipc-server={MPV_SERVER_SOCKET_PATH}",
+            Arguments =
+                $"{audioFile} --terminal=no --input-terminal=no --input-cursor=no --input-ipc-server={MPV_SERVER_SOCKET_PATH}",
             UseShellExecute = false,
             CreateNoWindow = true,
         };
@@ -64,18 +65,9 @@ public class MpvApi : IDisposable
         return root.GetProperty("data").ToString();
     }
 
-    public async Task<TimeSpan> GetAudioTimeSpan()
+    public async Task<double> GetCurrentPosition()
     {
-        int time = (int)
-            double.Parse(await GetProperty("playback-time"), CultureInfo.InvariantCulture);
-        return TimeSpan.FromSeconds(time);
-    }
-
-    public async Task<TimeSpan> GetDuration()
-    {
-        return TimeSpan.FromSeconds(
-            (int)double.Parse(await GetProperty("duration"), CultureInfo.InvariantCulture)
-        );
+        return double.Parse(await GetProperty("playback-time"), CultureInfo.InvariantCulture);
     }
 
     public async Task<string> GetFileName()
@@ -148,5 +140,10 @@ public class MpvApi : IDisposable
         _playProcess.Dispose();
 
         _mpvHub?.Dispose();
+    }
+
+    public async Task<double> GetDuration()
+    {
+        return double.Parse(await GetProperty("duration"), CultureInfo.InvariantCulture);
     }
 }

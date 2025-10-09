@@ -4,7 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
-namespace RhythmTracker;
+namespace RhythmTracker.AudioManager;
 
 public class MpvHub : IDisposable
 {
