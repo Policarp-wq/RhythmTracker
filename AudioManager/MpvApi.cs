@@ -19,7 +19,17 @@ public class MpvApi : IDisposable, IAudioManager
     private readonly Process _playProcess;
     private MpvHub? _mpvHub;
     public Task? PlayTask { get; private set; }
-    public bool IsPlaying => !_playProcess.HasExited;
+
+    public bool IsPlaying()
+    {
+        try
+        {
+            return PlayTask != null && !_playProcess.HasExited;
+        }
+        catch (Exception) { }
+        return false;
+    }
+
     private int _cnt = 0;
     private bool _isDisposed = false;
 
@@ -38,7 +48,7 @@ public class MpvApi : IDisposable, IAudioManager
 
     private async Task<string?> ExecuteCommand(Dictionary<string, object> command)
     {
-        if (!IsPlaying || _mpvHub == null)
+        if (!IsPlaying() || _mpvHub == null)
         {
             return null;
         }
@@ -75,7 +85,7 @@ public class MpvApi : IDisposable, IAudioManager
         return await GetProperty("media-title");
     }
 
-    public async Task StartPlayingAudio(CancellationToken token, int stopPollIntervalMs = 100)
+    public async Task StartPlayingAudio(CancellationToken token, int pingInterval)
     {
         _playProcess.Start();
         var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
@@ -105,12 +115,12 @@ public class MpvApi : IDisposable, IAudioManager
                     while (!_playProcess.HasExited)
                     {
                         token.ThrowIfCancellationRequested();
-                        await Task.Delay(stopPollIntervalMs, token);
+                        await Task.Delay(pingInterval, token);
                     }
                 }
                 catch (OperationCanceledException)
                 {
-                    System.Console.WriteLine("Cancelled");
+                    // System.Console.WriteLine("Cancelled");
                 }
                 catch (Exception)
                 {

@@ -15,6 +15,8 @@ public class MpvHub : IDisposable
     private readonly StreamWriter _writer;
     private ConcurrentDictionary<int, string> _responses = [];
     private readonly int _maxRequestTries;
+    private SemaphoreSlim _readSemaphore = new(1, 1);
+    private SemaphoreSlim _writeSemaphore = new(1, 1);
 
     public MpvHub(Socket socket, int maxRequestTries = 10)
     {
@@ -31,28 +33,37 @@ public class MpvHub : IDisposable
         {
             return val;
         }
-        string? response = await _reader.ReadLineAsync();
-        int tries = 0;
-        while (tries < _maxRequestTries)
+        await _readSemaphore.WaitAsync();
+        try
         {
-            if (response != null && response.Contains("request_id"))
+            string? response = await _reader.ReadLineAsync();
+            int tries = 0;
+            while (tries < _maxRequestTries)
             {
-                int idIndex = response.IndexOf("request_id") + 12;
-                StringBuilder stringId = new();
-                while (idIndex < response.Length && char.IsDigit(response[idIndex]))
+                if (response != null && response.Contains("request_id"))
                 {
-                    stringId.Append(response[idIndex]);
-                    ++idIndex;
+                    int idIndex = response.IndexOf("request_id") + 12;
+                    StringBuilder stringId = new();
+                    while (idIndex < response.Length && char.IsDigit(response[idIndex]))
+                    {
+                        stringId.Append(response[idIndex]);
+                        ++idIndex;
+                    }
+                    int id = int.Parse(stringId.ToString());
+                    if (id == requestId)
+                        return response;
+                    _responses.TryAdd(id, response);
                 }
-                int id = int.Parse(stringId.ToString());
-                if (id == requestId)
-                    return response;
-                _responses.TryAdd(id, response);
+                response = await _reader.ReadLineAsync();
+                await Task.Delay(10);
+                ++tries;
             }
-            response = await _reader.ReadLineAsync();
-            await Task.Delay(10);
-            ++tries;
         }
+        finally
+        {
+            _readSemaphore.Release();
+        }
+
         return null;
     }
 
@@ -65,7 +76,15 @@ public class MpvHub : IDisposable
     {
         command.Add("request_id", requestId);
         var serializedMessage = GetSerializedMpvCommand(command);
-        await _writer.WriteAsync(serializedMessage);
+        await _writeSemaphore.WaitAsync();
+        try
+        {
+            await _writer.WriteAsync(serializedMessage);
+        }
+        finally
+        {
+            _writeSemaphore.Release();
+        }
     }
 
     public void Dispose()
@@ -85,7 +104,7 @@ public class MpvHub : IDisposable
             _network.Dispose();
             _socket.Dispose();
             _disposed = true;
-            System.Console.WriteLine("Hub disposed");
+            // System.Console.WriteLine("Hub disposed");
         }
     }
 }

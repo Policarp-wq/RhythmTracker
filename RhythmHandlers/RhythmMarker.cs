@@ -3,12 +3,12 @@ using System.Threading.Tasks;
 
 namespace RhythmTracker.Rhythm;
 
-public class RhythmTracker
+public class RhythmMarker
 {
     private readonly IAudioManager _manager;
-    private List<LaneFlag> _flags = [];
+    private List<Rhythm> _flags = [];
 
-    public RhythmTracker(IAudioManager manager)
+    public RhythmMarker(IAudioManager manager)
     {
         _manager = manager;
     }

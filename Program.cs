@@ -2,48 +2,87 @@
 using System.Globalization;
 using RhythmTracker;
 using RhythmTracker.AudioManager;
+using RhythmTracker.Rhythm;
 
 static TimeSpan GetTimeFromRawSeconds(double seconds) => TimeSpan.FromSeconds((int)seconds);
 
 string audioFile = "orchid.mp3";
-InputManager manager = new();
-manager.Subscribe(ConsoleKey.Spacebar, () => System.Console.WriteLine("Kek"));
-CancellationTokenSource tokenSource = new();
 using MpvApi mpv = new(audioFile);
-await mpv.StartPlayingAudio(tokenSource.Token);
+bool isMarking = true;
+System.Console.WriteLine("Marking = 1, Testing = 0");
+if (int.Parse(Console.ReadLine()) == 0)
+{
+    isMarking = false;
+}
+
+RhythmMarker rhythmMarker = new(mpv);
+
+InputManager inputManager = new();
+inputManager.Subscribe(
+    ConsoleKey.DownArrow,
+    async () =>
+    {
+        await rhythmMarker.Flag(0);
+    }
+);
+inputManager.Subscribe(
+    ConsoleKey.LeftArrow,
+    async () =>
+    {
+        await rhythmMarker.Flag(-1);
+    }
+);
+inputManager.Subscribe(
+    ConsoleKey.RightArrow,
+    async () =>
+    {
+        await rhythmMarker.Flag(1);
+    }
+);
+
+CancellationTokenSource tokenSource = new();
+Console.CursorVisible = false;
 Console.CancelKeyPress += (sender, e) =>
 {
     e.Cancel = true;
     tokenSource.Cancel();
 };
 
-var timerTask = Task.Run(async () =>
+await mpv.StartPlayingAudio(tokenSource.Token, 250);
+System.Console.WriteLine($"Now playing: {await mpv.GetFileName()}");
+
+TimeSpan duration = GetTimeFromRawSeconds(await mpv.GetDuration());
+TimeSpan prev = TimeSpan.Zero;
+Console.Write($"\r{prev}/{duration}   ");
+Task PrintAudioTime(double currentPosition)
 {
-    try
+    var res = GetTimeFromRawSeconds(currentPosition);
+    if (res != prev)
     {
-        Console.CursorVisible = false;
-        TimeSpan prev = TimeSpan.Zero;
-        TimeSpan duration = GetTimeFromRawSeconds(await mpv.GetDuration());
-        System.Console.WriteLine($"Now playing: {await mpv.GetFileName()}");
-        System.Console.Write(prev + "/" + duration + "\r");
-        while (mpv.IsPlaying)
-        {
-            var res = GetTimeFromRawSeconds(await mpv.GetCurrentPosition());
-            if (res != prev)
-            {
-                prev = res;
-                Console.Write($"\r{res}/{duration}   ");
-            }
-            // System.Console.WriteLine(res);
-            await Task.Delay(250);
-        }
+        prev = res;
+        Console.Write($"\r{res}/{duration}   ");
     }
-    catch (InvalidOperationException) { }
+    return Task.CompletedTask;
+}
 
-    if (mpv.PlayTask != null)
-        await mpv.PlayTask;
-    Console.CursorVisible = true;
-    Console.WriteLine("\nPlayback finished. Press any key to exit.");
-});
-
-manager.ListenConsoleInput(() => timerTask.IsCompleted);
+Audio audio = new(mpv);
+if (isMarking)
+    audio.OnPositionGot += PrintAudioTime;
+var track = audio.TrackAudioTime(
+    50,
+    () => Console.WriteLine("\nPlayback finished. Press any key to exit.")
+);
+if (isMarking)
+{
+    inputManager.ListenConsoleInput(() => track.IsCompleted);
+    await rhythmMarker.SaveFlags();
+}
+else
+{
+    RhythmPulser pulser = new(mpv, "flags", 200, 10);
+    audio.OnPositionGot += pulser.RefreshActiveRhythms;
+    await track;
+    audio.OnPositionGot -= pulser.RefreshActiveRhythms;
+}
+audio.OnPositionGot -= PrintAudioTime;
+Console.CursorVisible = true;
