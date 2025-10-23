@@ -4,5 +4,5 @@ namespace RhythmTracker.Core.Interpreters;
 
 public interface IInterpreter
 {
-    public Task Play();
+    public Task Play(CancellationToken token);
 }

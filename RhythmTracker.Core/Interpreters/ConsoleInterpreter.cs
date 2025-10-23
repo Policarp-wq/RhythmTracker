@@ -6,7 +6,7 @@ namespace RhythmTracker.Core.Interpreters;
 
 public class ConsoleInterpreter : IInterpreter
 {
-    public async Task Play()
+    public async Task Play(CancellationToken token)
     {
         static TimeSpan GetTimeFromRawSeconds(double seconds) => TimeSpan.FromSeconds((int)seconds);
         string audioFile = "orchid.mp3";
@@ -78,6 +78,7 @@ public class ConsoleInterpreter : IInterpreter
 
         var track = audio.TrackAudioTime(
             50,
+            CancellationToken.None,
             () => Console.WriteLine("\nPlayback finished. Press any key to exit.")
         );
 

@@ -11,23 +11,23 @@ public class WindowInterpreter : IInterpreter, IDisposable
 {
     public RhythmCanvas? _canvas;
 
-    public async Task Play()
+    public async Task Play(CancellationToken token)
     {
         var app = Application.New("com.rhythm", Gio.ApplicationFlags.FlagsNone);
-        app.OnActivate += async (_, _) => await CreateWindowWithCanvas(app);
+        app.OnActivate += async (_, _) => await CreateWindowWithCanvas(app, token);
         app.RunWithSynchronizationContext(null);
     }
 
-    public async Task CreateWindowWithCanvas(Application app)
+    public async Task CreateWindowWithCanvas(Application app, CancellationToken token)
     {
         var window = ApplicationWindow.New(app);
         window.Title = "LOL";
-        window.DefaultWidth = 900;
-        window.DefaultHeight = 900;
+        window.DefaultWidth = 450;
+        window.DefaultHeight = 450;
         _canvas = new(window, "orchid.mp3", "flags", 50);
         window.Present();
         Log.Info("Created window");
-        _canvas.Run();
+        await _canvas.Run(token);
         Log.Info("Canvas is on");
     }
 

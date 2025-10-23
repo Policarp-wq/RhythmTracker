@@ -13,7 +13,11 @@ public class AudioContext
         _audioManager = audioManager;
     }
 
-    public async Task TrackAudioTime(int pingInterval, Action? onEnd = null)
+    public async Task TrackAudioTime(
+        int pingInterval,
+        CancellationToken token,
+        Action? onEnd = null
+    )
     {
         try
         {
@@ -23,10 +27,11 @@ public class AudioContext
                 var curPos = await _audioManager.GetCurrentPosition();
                 if (OnPositionGot != null)
                     await OnPositionGot(curPos);
-                await Task.Delay(pingInterval);
+                await Task.Delay(pingInterval, token);
             }
         }
         catch (InvalidOperationException) { }
+        catch (OperationCanceledException) { }
         onEnd?.Invoke();
         Log.Info("Ended tracking time");
     }

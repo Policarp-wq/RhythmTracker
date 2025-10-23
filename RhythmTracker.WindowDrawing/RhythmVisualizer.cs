@@ -3,17 +3,19 @@ using RhythmTracker.WindowDrawing.Drawing;
 
 namespace RhythmTracker.WindowDrawing;
 
-public class RhythmVisualizer
+public class RhythmVisualizer : IRenderable
 {
     public readonly double MxRadius;
     private readonly double _cx;
     private readonly double _cy;
+    public readonly Color Color;
 
-    public RhythmVisualizer(double mxRadius, double cx, double cy)
+    public RhythmVisualizer(double mxRadius, double cx, double cy, Color color)
     {
         MxRadius = mxRadius;
         _cx = cx;
         _cy = cy;
+        Color = color;
     }
 
     public double CurrentRadius { get; private set; }
@@ -36,8 +38,8 @@ public class RhythmVisualizer
         CurrentRadius = 0;
     }
 
-    public void GetDrawingFunc(CanvasInfo info)
+    public void Render(CanvasInfo info)
     {
-        Drawings.DrawCircle(info, new(_cx, _cy, CurrentRadius));
+        Drawings.DrawCircle(info, new(_cx, _cy, CurrentRadius), Color);
     }
 }

@@ -10,6 +10,7 @@ namespace RhythmTracker.WindowDrawing;
 public class Canvas : DrawingArea
 {
     private DrawingFuncType? _currentDrawingFunc;
+    private List<IRenderable> _renderables = [];
     private DrawingFuncType? _background;
 
     public Canvas(DrawingFuncType? backgroundFunc = null)
@@ -19,16 +20,30 @@ public class Canvas : DrawingArea
         SetDrawFunc(MainDrawFunc);
     }
 
-    public async Task StartRefreshing(int fps, Action onFrame)
+    public void AddRenderable(IRenderable renderable)
+    {
+        _renderables.Add(renderable);
+    }
+
+    public async Task StartRefreshing(int fps, Action onFrame, CancellationToken token)
     {
         Log.Info("Canvas started refreshing");
         const int second = 1000;
         int delay = second / fps;
-        while (true)
+        if (delay <= 0)
+            delay = 0;
+        try
         {
-            onFrame();
-            await Task.Delay(delay);
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                Render();
+                onFrame();
+                await Task.Delay(delay, token);
+            }
         }
+        catch (OperationCanceledException) { }
+        Log.Info("Canvas stopped refreshing");
     }
 
     private void MainDrawFunc(DrawingArea drawingArea, Cairo.Context cr, int width, int height)
@@ -36,6 +51,10 @@ public class Canvas : DrawingArea
         CanvasInfo info = new(drawingArea, cr, width, height);
         _background?.Invoke(info);
         _currentDrawingFunc?.Invoke(info);
+        foreach (var el in _renderables)
+        {
+            el.Render(info);
+        }
     }
 
     public void UpdateDrawingFunc(DrawingFuncType? drawing)
