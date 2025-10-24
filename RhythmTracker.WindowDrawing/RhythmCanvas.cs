@@ -3,6 +3,8 @@ using Gtk;
 using RhythmTracker.AudioManagement.AudioManager;
 using RhythmTracker.AudioManagement.Logging;
 using RhythmTracker.AudioManagement.RhythmHandlers;
+using RhythmTracker.WindowDrawing.Drawing;
+using RhythmTracker.WindowDrawing.Models;
 using RhythmTracker.WindowDrawing.Views;
 
 namespace RhythmTracker.WindowDrawing;
@@ -14,9 +16,7 @@ public class RhythmCanvas : IDisposable
     private readonly RhythmPulser _pulser;
     private readonly Canvas _canvas;
     public readonly int FPS;
-    private readonly RhythmVisualizer _visualizer;
-    private double? _currentPulse;
-    private double? _nextPulse;
+    private Scene _scene;
 
     public RhythmCanvas(
         ApplicationWindow window,
@@ -39,28 +39,25 @@ public class RhythmCanvas : IDisposable
         _mpvApi = new(audioFile);
         _pulser = new(_mpvApi, flagsFile, 200, 10);
         FPS = refreshRate;
-        _visualizer = new(
-            _window.DefaultHeight / 2.0,
-            _window.DefaultWidth / 2.0,
-            _window.DefaultWidth / 2.0,
-            new(0.8, 0, 0.2)
-        );
+        LaneView laneView = new(new(0, 200), window.DefaultWidth, 60, new(0, 1, 0));
+        Lane lane = new(laneView, 50);
+
+        lane.SpawnRhythm(7);
+        lane.SpawnRhythm(5);
+        lane.SpawnRhythm(3);
+        lane.SpawnRhythm(1);
+        _scene = [lane];
+        _canvas.Scene = _scene;
     }
 
     public async Task Run(CancellationToken token)
     {
         await _pulser.FillBuffer();
-        _currentPulse = await _pulser.GetNextPulse();
-        _nextPulse = await _pulser.GetNextPulse();
         AudioContext audioContext = new(_mpvApi);
 
         int refreshMs = 50;
-        _canvas.AddRenderable(_visualizer);
-        // _canvas.AddRenderable(new RhythmBallView(new(20, 20), 10, new(0, 0.2, 0.1)));
-        // _canvas.AddRenderable(new RhythmBallView(new(40, 20), 10, new(0, 0, 0.1)));
-        // _canvas.AddRenderable(new RhythmBallView(new(60, 20), 10, new(1, 0, 0)));
         using CancellationTokenSource refreshEndToken = new();
-        audioContext.OnPositionGot += async (pos) => await OnPositionGot(pos, refreshMs);
+        audioContext.OnPositionGot += OnPositionGot;
 
         var refreshTask = Task.Run(
             () => _canvas.StartRefreshing(FPS, OnFrame, refreshEndToken.Token),
@@ -76,30 +73,27 @@ public class RhythmCanvas : IDisposable
         await refreshTask;
     }
 
-    public async Task OnPositionGot(double curPos, double epsMs)
-    {
-        if (!_currentPulse.HasValue)
-            return;
-        if (_currentPulse.Value - curPos < epsMs / 1000)
-        {
-            _currentPulse = _nextPulse;
-            _nextPulse = await _pulser.GetNextPulse();
-            _visualizer.Reset();
-            if (!_currentPulse.HasValue)
-            {
-                Log.Info("Pulsing is over");
-                _visualizer.Delta = 0;
-                _canvas.UpdateDrawingFunc(_visualizer.Render);
-                return;
-            }
-        }
-        _visualizer.AdjustDelta((_currentPulse.Value - curPos) * FPS);
-        // _canvas.UpdateDrawingFunc(_visualizer.GetDrawingFunc);
-    }
-
     public void OnFrame()
     {
-        _visualizer.IncreaseRadius();
+        foreach (var el in _scene)
+        {
+            if (el is IMovable movable)
+            {
+                movable.Move();
+            }
+        }
+    }
+
+    public Task OnPositionGot(double curPos)
+    {
+        foreach (var el in _scene)
+        {
+            if (el is IRhythmAdjustable adjustable)
+            {
+                adjustable.Adjust(curPos, FPS);
+            }
+        }
+        return Task.CompletedTask;
     }
 
     public void Dispose()

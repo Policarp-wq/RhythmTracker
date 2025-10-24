@@ -5,8 +5,9 @@ namespace RhythmTracker.WindowDrawing.Views;
 
 public abstract class BaseView : IRenderable
 {
-    public Point Position;
-    public Color Color;
+    public Point Position { get; set; }
+    public Color Color { get; set; }
+    public abstract bool IsVisible { get; }
 
     public BaseView(Point position, Color color)
     {

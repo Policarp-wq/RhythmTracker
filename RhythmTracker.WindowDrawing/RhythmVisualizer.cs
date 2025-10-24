@@ -1,5 +1,6 @@
 using System;
 using RhythmTracker.WindowDrawing.Drawing;
+using RhythmTracker.WindowDrawing.Views;
 
 namespace RhythmTracker.WindowDrawing;
 
@@ -20,6 +21,8 @@ public class RhythmVisualizer : IRenderable
 
     public double CurrentRadius { get; private set; }
     public double Delta { get; set; }
+
+    public bool IsVisible { get; set; } = true;
 
     public void AdjustDelta(double targetTime)
     {

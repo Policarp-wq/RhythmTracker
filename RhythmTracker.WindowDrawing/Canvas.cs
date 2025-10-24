@@ -1,8 +1,11 @@
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using GObject;
 using Gtk;
 using RhythmTracker.AudioManagement.Logging;
+using RhythmTracker.WindowDrawing.Drawing;
+using RhythmTracker.WindowDrawing.Views;
 using DrawingFuncType = System.Action<RhythmTracker.WindowDrawing.CanvasInfo>;
 
 namespace RhythmTracker.WindowDrawing;
@@ -10,19 +13,20 @@ namespace RhythmTracker.WindowDrawing;
 public class Canvas : DrawingArea
 {
     private DrawingFuncType? _currentDrawingFunc;
-    private List<IRenderable> _renderables = [];
+    public Scene Scene;
     private DrawingFuncType? _background;
 
     public Canvas(DrawingFuncType? backgroundFunc = null)
         : base([])
     {
+        Scene = [];
         _background = backgroundFunc;
         SetDrawFunc(MainDrawFunc);
     }
 
     public void AddRenderable(IRenderable renderable)
     {
-        _renderables.Add(renderable);
+        Scene.Add(renderable);
     }
 
     public async Task StartRefreshing(int fps, Action onFrame, CancellationToken token)
@@ -32,14 +36,20 @@ public class Canvas : DrawingArea
         int delay = second / fps;
         if (delay <= 0)
             delay = 0;
+        Stopwatch stopwatch = new();
         try
         {
             while (true)
             {
                 token.ThrowIfCancellationRequested();
+                stopwatch.Restart();
                 Render();
                 onFrame();
-                await Task.Delay(delay, token);
+                stopwatch.Stop();
+                int frameTime = (int)stopwatch.ElapsedMilliseconds;
+                int remaining = delay - frameTime;
+                if (remaining > 0)
+                    await Task.Delay(remaining, token);
             }
         }
         catch (OperationCanceledException) { }
@@ -50,11 +60,8 @@ public class Canvas : DrawingArea
     {
         CanvasInfo info = new(drawingArea, cr, width, height);
         _background?.Invoke(info);
+        Scene.Render(info);
         _currentDrawingFunc?.Invoke(info);
-        foreach (var el in _renderables)
-        {
-            el.Render(info);
-        }
     }
 
     public void UpdateDrawingFunc(DrawingFuncType? drawing)
