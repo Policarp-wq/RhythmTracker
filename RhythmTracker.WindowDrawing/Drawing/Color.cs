@@ -12,4 +12,8 @@ public struct Color
         Green = green;
         Blue = blue;
     }
+
+    public static readonly Color RedColor = new(1, 0, 0);
+    public static readonly Color GreenColor = new(0, 1, 0);
+    public static readonly Color BlueColor = new(0, 0, 1);
 }

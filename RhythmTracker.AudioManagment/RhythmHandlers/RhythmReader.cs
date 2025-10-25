@@ -4,17 +4,17 @@ using System.Text;
 
 namespace RhythmTracker.AudioManagement.RhythmHandlers;
 
-public class RhythmPulser : IDisposable
+public class RhythmReader : IDisposable
 {
     public readonly string FlagFile;
     private readonly StreamReader _reader;
-    private bool _isFullyRead => _reader.EndOfStream;
+    public bool IsFullyRead => _reader.EndOfStream;
     private IAudioManager _audioManager;
     private Queue<Rhythm> _rhythms = [];
     private readonly int _bufferCnt;
     public readonly double EpsilonS;
 
-    public RhythmPulser(IAudioManager audioManager, string flagFile, int epsilonMs, int bufferCnt)
+    public RhythmReader(IAudioManager audioManager, string flagFile, int epsilonMs, int bufferCnt)
     {
         _audioManager = audioManager;
         FlagFile = flagFile;
@@ -59,7 +59,7 @@ public class RhythmPulser : IDisposable
 
     public async Task FillBuffer()
     {
-        if (!_isFullyRead)
+        if (!IsFullyRead)
         {
             for (int i = 0; i < _bufferCnt - _rhythms.Count; ++i)
             {

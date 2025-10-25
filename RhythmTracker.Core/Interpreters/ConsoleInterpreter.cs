@@ -33,14 +33,14 @@ public class ConsoleInterpreter : IInterpreter
             ConsoleKey.LeftArrow,
             async () =>
             {
-                await rhythmMarker.Flag(-1);
+                await rhythmMarker.Flag(1);
             }
         );
         inputManager.Subscribe(
             ConsoleKey.RightArrow,
             async () =>
             {
-                await rhythmMarker.Flag(1);
+                await rhythmMarker.Flag(-1);
             }
         );
 
@@ -89,7 +89,7 @@ public class ConsoleInterpreter : IInterpreter
         }
         else
         {
-            RhythmPulser pulser = new(mpv, "flags", 200, 10);
+            RhythmReader pulser = new(mpv, "flags", 200, 10);
             audio.OnPositionGot += pulser.RefreshActiveRhythms;
             await track;
             audio.OnPositionGot -= pulser.RefreshActiveRhythms;

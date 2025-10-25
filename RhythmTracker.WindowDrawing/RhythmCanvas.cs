@@ -13,7 +13,8 @@ public class RhythmCanvas : IDisposable
 {
     private readonly ApplicationWindow _window;
     private readonly MpvApi _mpvApi;
-    private readonly RhythmPulser _pulser;
+    private readonly RhythmReader _reader;
+    private readonly RhythmDistributer _distributer;
     private readonly Canvas _canvas;
     public readonly int FPS;
     private Scene _scene;
@@ -30,31 +31,37 @@ public class RhythmCanvas : IDisposable
             (info) =>
             {
                 var (cr, width, height) = (info.Context, info.Width, info.Height);
-                cr.SetSourceRgb(0, 0, 0.4);
+                cr.SetSourceRgb(Color.BlueColor);
                 cr.Rectangle(0, 0, width, height);
                 cr.Fill();
             }
         );
         _window.Child = _canvas;
         _mpvApi = new(audioFile);
-        _pulser = new(_mpvApi, flagsFile, 200, 10);
+        _reader = new(_mpvApi, flagsFile, 200, 10);
+        _distributer = new(_reader, 6);
         FPS = refreshRate;
-        LaneView laneView = new(new(0, 200), window.DefaultWidth, 60, new(0, 1, 0));
-        Lane lane = new(laneView, 50);
+        RectangleView laneView = new(new(0, 100), window.DefaultWidth, 60, Color.GreenColor);
+        RectangleView laneView2 = (RectangleView)laneView.Clone();
+        laneView2.Position.Y = laneView.Position.Y + laneView.Height * 1.15;
+        RectangleView laneView3 = (RectangleView)laneView.Clone();
+        laneView3.Position.Y = laneView2.Position.Y + laneView2.Height * 1.15;
+        Lane lane = new(laneView, 5, Color.BlueColor, 25);
+        Lane lane2 = new(laneView2, 5, Color.BlueColor, 25);
+        Lane lane3 = new(laneView3, 5, Color.BlueColor, 25);
 
-        lane.SpawnRhythm(7);
-        lane.SpawnRhythm(5);
-        lane.SpawnRhythm(3);
-        lane.SpawnRhythm(1);
-        _scene = [lane];
+        _distributer.AddConsumer(1, lane);
+        _distributer.AddConsumer(0, lane2);
+        _distributer.AddConsumer(-1, lane3);
+
+        _scene = [lane, lane2, lane3];
         _canvas.Scene = _scene;
     }
 
     public async Task Run(CancellationToken token)
     {
-        await _pulser.FillBuffer();
         AudioContext audioContext = new(_mpvApi);
-
+        await _distributer.FullBuffer();
         int refreshMs = 50;
         using CancellationTokenSource refreshEndToken = new();
         audioContext.OnPositionGot += OnPositionGot;
@@ -63,6 +70,10 @@ public class RhythmCanvas : IDisposable
             () => _canvas.StartRefreshing(FPS, OnFrame, refreshEndToken.Token),
             token
         );
+        await _distributer.Distribute();
+        await _distributer.Distribute();
+        await _distributer.Distribute();
+
         await _mpvApi.StartPlayingAudio(token, 250);
         await audioContext.TrackAudioTime(
             refreshMs,
@@ -84,7 +95,7 @@ public class RhythmCanvas : IDisposable
         }
     }
 
-    public Task OnPositionGot(double curPos)
+    public async Task OnPositionGot(double curPos)
     {
         foreach (var el in _scene)
         {
@@ -93,12 +104,13 @@ public class RhythmCanvas : IDisposable
                 adjustable.Adjust(curPos, FPS);
             }
         }
-        return Task.CompletedTask;
+        if (_distributer.Next.HasValue && _distributer.Next.Value - curPos < 5)
+            await _distributer.Distribute();
     }
 
     public void Dispose()
     {
-        _pulser.Dispose();
+        _reader.Dispose();
         _mpvApi.Dispose();
         GC.SuppressFinalize(this);
         Log.Info("Rhythm canvas disposed");

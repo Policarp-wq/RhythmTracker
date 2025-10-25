@@ -2,7 +2,7 @@ using RhythmTracker.WindowDrawing.Drawing;
 
 namespace RhythmTracker.WindowDrawing.Views;
 
-public class RhythmBallView : BaseView, ICloneable
+public class RhythmBallView : BaseView
 {
     public readonly double Radius;
     public double Velocity { get; set; }
@@ -22,7 +22,7 @@ public class RhythmBallView : BaseView, ICloneable
         Drawings.DrawCircle(info, new(Position.X, Position.Y, Radius), Color);
     }
 
-    public object Clone()
+    public override object Clone()
     {
         return new RhythmBallView((Point)Position.Clone(), Radius, Color);
     }

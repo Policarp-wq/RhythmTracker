@@ -3,12 +3,12 @@ using RhythmTracker.WindowDrawing.Drawing;
 
 namespace RhythmTracker.WindowDrawing.Views;
 
-public class LaneView : BaseView
+public class RectangleView : BaseView
 {
     public readonly double Width;
     public readonly double Height;
 
-    public LaneView(Point position, double width, double height, Color color)
+    public RectangleView(Point position, double width, double height, Color color)
         : base(position, color)
     {
         Width = width;
@@ -16,6 +16,11 @@ public class LaneView : BaseView
     }
 
     public override bool IsVisible => true;
+
+    public override object Clone()
+    {
+        return new RectangleView((Point)Position.Clone(), Width, Height, Color);
+    }
 
     public override void Render(CanvasInfo info)
     {
