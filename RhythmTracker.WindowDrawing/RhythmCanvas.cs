@@ -4,6 +4,7 @@ using RhythmTracker.AudioManagement.AudioManager;
 using RhythmTracker.AudioManagement.Logging;
 using RhythmTracker.AudioManagement.RhythmHandlers;
 using RhythmTracker.WindowDrawing.Drawing;
+using RhythmTracker.WindowDrawing.Keyboard;
 using RhythmTracker.WindowDrawing.Models;
 using RhythmTracker.WindowDrawing.Views;
 
@@ -37,6 +38,7 @@ public class RhythmCanvas : IDisposable
             }
         );
         _window.Child = _canvas;
+        _window.AddController(new KeyboardListener().ControllerKey);
         _mpvApi = new(audioFile);
         _reader = new(_mpvApi, flagsFile, 200, 10);
         _distributer = new(_reader, 6);
@@ -70,9 +72,6 @@ public class RhythmCanvas : IDisposable
             () => _canvas.StartRefreshing(FPS, OnFrame, refreshEndToken.Token),
             token
         );
-        await _distributer.Distribute();
-        await _distributer.Distribute();
-        await _distributer.Distribute();
 
         await _mpvApi.StartPlayingAudio(token, 250);
         await audioContext.TrackAudioTime(
